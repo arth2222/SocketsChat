@@ -26,7 +26,7 @@ namespace SocketsChat
 
 
             StartServer();
-            //StartClient();
+            //StartClient();bollr
            
 
 
