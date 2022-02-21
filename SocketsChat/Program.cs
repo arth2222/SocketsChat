@@ -105,56 +105,73 @@ namespace SocketsChat
 
         public static void StartServer()
         {
-            // Get Host IP Address that is used to establish a connection
-            // In this case, we get one IP address of localhost that is IP : 127.0.0.1
-            // If a host has multiple addresses, you will get a list of addresses
-            IPHostEntry host = Dns.GetHostEntry("192.168.1.171");
-            IPAddress ipAddress = host.AddressList[2];
-            IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 8888);
-
+            TcpListener server = null;
             try
             {
+                // Set the TcpListener on port 13000.
+                Int32 port = 8888;
+                IPAddress localAddr = IPAddress.Parse("192.168.1.171");
 
-                // Create a Socket that will use Tcp protocol
-                Socket listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                // A Socket must be associated with an endpoint using the Bind method
-                listener.Bind(localEndPoint);
-                // Specify how many requests a Socket can listen before it gives Server busy response.
-                // We will listen 10 requests at a time
-                listener.Listen(10);
+                // TcpListener server = new TcpListener(port);
+                server = new TcpListener(localAddr, port);
 
-                Console.WriteLine("Waiting for a connection...");
-                Socket handler = listener.Accept();
+                // Start listening for client requests.
+                server.Start();
 
-                // Incoming data from the client.
-                string data = null;
-                byte[] bytes = null;
+                // Buffer for reading data
+                Byte[] bytes = new Byte[256];
+                String data = null;
 
+                // Enter the listening loop.
                 while (true)
                 {
-                    bytes = new byte[1024];
-                    int bytesRec = handler.Receive(bytes);
-                    data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-                    if (data.IndexOf("<EOF>") > -1)
+                    Console.Write("Waiting for a connection... ");
+
+                    // Perform a blocking call to accept requests.
+                    // You could also use server.AcceptSocket() here.
+                    TcpClient client = server.AcceptTcpClient();
+                    Console.WriteLine("Connected!");
+
+                    data = null;
+
+                    // Get a stream object for reading and writing
+                    NetworkStream stream = client.GetStream();
+
+                    int i;
+
+                    // Loop to receive all the data sent by the client.
+                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
                     {
-                        break;
+                        // Translate data bytes to a ASCII string.
+                        data = System.Text.Encoding.ASCII.GetString(bytes, 0, i);
+                        Console.WriteLine("Received: {0}", data);
+
+                        // Process the data sent by the client.
+                        data = data.ToUpper();
+
+                        byte[] msg = System.Text.Encoding.ASCII.GetBytes(data);
+
+                        // Send back a response.
+                        stream.Write(msg, 0, msg.Length);
+                        Console.WriteLine("Sent: {0}", data);
                     }
+
+                    // Shutdown and end connection
+                    client.Close();
                 }
-
-                Console.WriteLine("Text received : {0}", data);
-
-                byte[] msg = Encoding.ASCII.GetBytes(data);
-                handler.Send(msg);
-                handler.Shutdown(SocketShutdown.Both);
-                handler.Close();
             }
-            catch (Exception e)
+            catch (SocketException e)
             {
-                Console.WriteLine(e.ToString());
+                Console.WriteLine("SocketException: {0}", e);
+            }
+            finally
+            {
+                // Stop listening for new clients.
+                server.Stop();
             }
 
-            Console.WriteLine("\n Press any key to continue...");
-            Console.ReadKey();
+            Console.WriteLine("\nHit enter to continue...");
+            Console.Read();
         }
     }
 }
